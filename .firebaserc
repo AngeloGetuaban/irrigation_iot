@@ -1,0 +1,18 @@
+{
+  "projects": {
+    "default": "iot-irrigation-d58cc"
+  },
+  "targets": {
+    "iot-irrigation-d58cc": {
+      "storage": {
+        "plants": [
+          "gs://iot-irrigation-d58cc.appspot.com",
+          "myproject-eu",
+          "myproject-ja",
+          "myproject.appspot.com"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

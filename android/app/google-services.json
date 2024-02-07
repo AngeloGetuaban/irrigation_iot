@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "436599040197",
+    "project_id": "iot-irrigation-d58cc",
+    "storage_bucket": "iot-irrigation-d58cc.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:436599040197:android:71c41abc15ffe91475a8ac",
+        "android_client_info": {
+          "package_name": "com.example.iot_alpha"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBUbuyFbhTzPYFV8iib1VS0fQMK7Y0LX04"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
