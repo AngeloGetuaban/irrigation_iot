@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
+import 'package:iot_alpha/humi_record.dart';
+import 'package:iot_alpha/temp_records.dart';
+import 'package:iot_alpha/water_record.dart';
 import 'main.dart';
 
 class Dashboard extends StatefulWidget {
@@ -12,7 +15,7 @@ class _DashboardState extends State<Dashboard> {
   final FirestoreService firestoreService = FirestoreService();
   bool isLoading = false;
   int waterDuration = 3; // default value, can be changed based on user input
-
+  List<Plant> plants = [];
   void showNotification(String message) {
     Future.delayed(Duration.zero, () {
       Flushbar(
@@ -58,6 +61,15 @@ class _DashboardState extends State<Dashboard> {
     }
   }
 
+  void recordWateringEvent(String plantId, int waterDuration) {
+    // Get the current date and time
+    DateTime now = DateTime.now();
+    String formattedDateTime = "${now.toLocal()}".split(' ')[0] + " ${now.hour}:${now.minute}:${now.second}";
+
+    // Update the Firestore document with the recorded information
+    firestoreService.recordWateringEvent(plantId, formattedDateTime, waterDuration);
+  }
+
 
   void toggleWaterState(Plant plant) {
     // If water_state is 0, set it to 1; if 1, set it to 0
@@ -81,6 +93,9 @@ class _DashboardState extends State<Dashboard> {
 
       // Update the button text and water_state in Firestore
       toggleWaterState(plant);
+
+      // Record the watering event
+      recordWateringEvent(plant.id, waterDuration);
     });
   }
 
@@ -136,11 +151,103 @@ class _DashboardState extends State<Dashboard> {
     }
   }
 
+  // Method to handle received humidity data
+  void onHumidityDataReceived(double humidity, String plantId) {
+    // Update the humidity record in Firestore
+    updateHumidityData(humidity, plantId);
+
+    // Add any additional logic related to handling humidity data
+  }
+
+  // Update the humidity record in Firestore
+  void updateHumidityData(double humidity, String plantId) {
+    // Call the function to save the humidity record
+    firestoreService.saveHumidityRecord(plantId, humidity);
+  }
+
+  void onTemperatureDataReceived(double temp, String plantId) {
+    updateTemperatureData(temp, plantId);
+  }
+
+  void updateTemperatureData(double temp, String plantId) {
+    firestoreService.saveTemperatureRecord(plantId, temp);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Dashboard'),
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Colors.blue,
+              ),
+              child: Text(
+                'Records',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                ),
+              ),
+            ),
+            ListTile(
+              title: Text('Water Records'),
+              onTap: () {
+                // Check if there is at least one plant in the list
+                if (plants.isNotEmpty) {
+                  // Use the plant ID of the first plant for demonstration
+                  String plantId = plants[0].id;
+
+                  // Navigate to Water Records screen
+                  Navigator.pop(context); // Close the drawer
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => WaterRecordsPage(plantId: plantId)),
+                  );
+                }
+              },
+            ),
+            ListTile(
+              title: Text('Humidity Records'),
+              onTap: () {
+                // Check if there is at least one plant in the list
+                if (plants.isNotEmpty) {
+                  // Use the plant ID of the first plant for demonstration
+                  String plantId = plants[0].id;
+
+                  // Navigate to Water Records screen
+                  Navigator.pop(context); // Close the drawer
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => HumidityRecordsPage(plantId: plantId)),
+                  );
+                }
+              },
+            ),
+            ListTile(
+              title: Text('Temperature Records'),
+              onTap: () {
+                // Check if there is at least one plant in the list
+                if (plants.isNotEmpty) {
+                  // Use the plant ID of the first plant for demonstration
+                  String plantId = plants[0].id;
+
+                  // Navigate to Water Records screen
+                  Navigator.pop(context); // Close the drawer
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => TemperatureRecordsPage(plantId: plantId)),
+                  );
+                }
+              },
+            ),
+          ],
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -154,7 +261,7 @@ class _DashboardState extends State<Dashboard> {
             } else if (snapshot.hasError) {
               return Center(child: Text('Error: ${snapshot.error}'));
             } else {
-              List<Plant> plants = snapshot.data ?? [];
+              plants = snapshot.data ?? [];
 
               plants.forEach((plant) {
                 Color tempColor = getTempColor(plant.temp);
@@ -178,6 +285,8 @@ class _DashboardState extends State<Dashboard> {
                 } else if (moistColor == Colors.red) {
                   showNotification("Your plant is too wet, stop watering!");
                 }
+                onHumidityDataReceived(plant.humi, plant.id);
+                onTemperatureDataReceived(plant.temp, plant.id);
               });
               return SingleChildScrollView(
                 child: Column(
@@ -347,7 +456,7 @@ class _DashboardState extends State<Dashboard> {
                                 ),
                               ),
                               style: ElevatedButton.styleFrom(
-                                primary: Colors.transparent, // Set this to transparent
+                                backgroundColor: Colors.transparent, // Set this to transparent
                                 elevation: 0, // No elevation when inside a container with decoration
                               ),
                             ),
