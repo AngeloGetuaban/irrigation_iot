@@ -19,6 +19,7 @@ class Plant {
   final double humi;
   final double moist;
   final int water_state;
+  final int water_duration;
 
   Plant({
     required this.id,
@@ -26,6 +27,7 @@ class Plant {
     required this.humi,
     required this.moist,
     required this.water_state,
+    required this.water_duration
   });
 }
 
@@ -49,6 +51,7 @@ class FirestoreService {
             humi: double.tryParse(plantData['humi']) ?? 0.0,
             moist: double.tryParse(plantData['moist']) ?? 0.0,
             water_state: plantData['water_state'],
+            water_duration: plantData['water_duration']
           );
         } else {
           return Plant(
@@ -57,6 +60,7 @@ class FirestoreService {
             humi: 0.0,
             moist: 0.0,
             water_state: 0,
+            water_duration: 0,
           );
         }
       }).toList();
@@ -152,6 +156,29 @@ class FirestoreService {
       return [];
     }
   }
+
+  Future<List<Map<String, dynamic>>> fetchMoistRecords(String plantId) async {
+    try {
+      // Get the reference to the plant document
+      DocumentSnapshot<Map<String, dynamic>> plantSnapshot =
+      await plantsCollection.doc(plantId).get() as DocumentSnapshot<Map<String, dynamic>>;
+
+      // Get the humidity events array
+      List<dynamic>? moistEvents = plantSnapshot.data()?['moist_record'];
+
+      // Return the array, or an empty list if it's null
+      if (moistEvents != null) {
+        List<Map<String, dynamic>> moistRecords =
+        List<Map<String, dynamic>>.from(moistEvents);
+        return moistRecords;
+      } else {
+        return [];
+      }
+    } catch (e) {
+      print('Error fetching temp records: $e');
+      return [];
+    }
+  }
   Future<void> saveHumidityRecord(String plantId, double humidity) async {
     try {
       // Get the current date and time
@@ -184,6 +211,18 @@ class FirestoreService {
     } catch (e) {
       print('Error saving temp record: $e');
     }
+  }
+  Future<void> updateWaterDurationInFirestore(int newWaterDuration) async {
+    await FirebaseFirestore.instance
+        .collection('plants')
+        .doc("Lpwoehp7wjCoQcbRUNo1")
+        .update({'water_duration': newWaterDuration});
+  }
+  Future<void> updatePhoneNumberInFirestore(String phoneNumber) async {
+    await FirebaseFirestore.instance
+        .collection('plants')
+        .doc("Lpwoehp7wjCoQcbRUNo1")
+        .update({'phone_number': phoneNumber});
   }
 }
 

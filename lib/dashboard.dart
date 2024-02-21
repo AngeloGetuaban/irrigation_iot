@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:iot_alpha/humi_record.dart';
+import 'package:iot_alpha/moist_record.dart';
 import 'package:iot_alpha/temp_records.dart';
 import 'package:iot_alpha/water_record.dart';
 import 'main.dart';
@@ -14,8 +15,9 @@ class Dashboard extends StatefulWidget {
 class _DashboardState extends State<Dashboard> {
   final FirestoreService firestoreService = FirestoreService();
   bool isLoading = false;
-  int waterDuration = 3; // default value, can be changed based on user input
+  int? waterDuration; // default value, can be changed based on user input
   List<Plant> plants = [];
+  TextEditingController phoneNumberController = TextEditingController(); // New controller for phone numbe
   void showNotification(String message) {
     Future.delayed(Duration.zero, () {
       Flushbar(
@@ -25,8 +27,56 @@ class _DashboardState extends State<Dashboard> {
       )..show(context);
     });
   }
+  void openPhoneNumberOverlay() async {
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Enter Phone Number'),
+          content: TextField(
+            controller: phoneNumberController,
+            keyboardType: TextInputType.phone,
+            decoration: InputDecoration(labelText: 'Enter your phone number'),
+            onChanged: (value) {
+              // Validate and format the phone number
+              if (value.isNotEmpty && !value.startsWith('+63')) {
+                // Add '+63' to the beginning of the phone number
+                phoneNumberController.text = '+63$value';
+                // Move the cursor to the end of the text
+                phoneNumberController.selection = TextSelection.fromPosition(
+                  TextPosition(offset: phoneNumberController.text.length),
+                );
+              }
+            },
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () async {
+                // Check if the phone number is valid before updating Firestore
+                if (isValidPhoneNumber(phoneNumberController.text)) {
+                  await firestoreService.updatePhoneNumberInFirestore(phoneNumberController.text);
+                  Navigator.of(context).pop();
+                } else {
+                  print('Invalid phone number');
+                }
+              },
+              child: Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+// Function to validate the phone number format
+  bool isValidPhoneNumber(String phoneNumber) {
+    // Check if the phone number starts with '+63' and has at least 10 digits
+    return phoneNumber.startsWith('+63') && phoneNumber.length >= 12;
+  }
 
   void openWaterDurationOverlay() async {
+    int newWaterDuration = waterDuration!; // Store the current value to compare later
+    String plantId = "";
     final result = await showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -38,13 +88,23 @@ class _DashboardState extends State<Dashboard> {
             onChanged: (value) {
               // Validate input and update water duration
               setState(() {
-                waterDuration = int.tryParse(value) ?? waterDuration;
+                newWaterDuration = int.tryParse(value) ?? newWaterDuration;
               });
             },
           ),
           actions: [
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
+                // Update waterDuration only if the value has changed
+                if (newWaterDuration != waterDuration) {
+                  setState(() {
+                    waterDuration = newWaterDuration;
+                  });
+
+                  // Update the 'water_duration' field in Firestore
+                  await firestoreService.updateWaterDurationInFirestore(newWaterDuration);
+                }
+
                 Navigator.of(context).pop(waterDuration);
               },
               child: Text('Save'),
@@ -83,7 +143,7 @@ class _DashboardState extends State<Dashboard> {
       isLoading = true;
     });
 
-    Timer(Duration(seconds: waterDuration), () async {
+    Timer(Duration(seconds: waterDuration!), () async {
       // Wait for 1 second before hiding loading and updating button text
       await Future.delayed(Duration(seconds: 1));
 
@@ -95,14 +155,14 @@ class _DashboardState extends State<Dashboard> {
       toggleWaterState(plant);
 
       // Record the watering event
-      recordWateringEvent(plant.id, waterDuration);
+      recordWateringEvent(plant.id, waterDuration!);
     });
   }
 
   Color getTempColor(double temp) {
-    if (temp >= 20.0 && temp <= 36.0) {
+    if (temp >= 18.0 && temp <= 25.0) {
       return Colors.green;
-    } else if (temp < 19.0) {
+    } else if (temp < 18.0) {
       return Colors.blue;
     } else {
       return Colors.red;
@@ -110,9 +170,9 @@ class _DashboardState extends State<Dashboard> {
   }
 
   Color getHumiColor(double humi) {
-    if (humi >= 60.0 && humi <= 80.0) {
+    if (humi >= 50.0 && humi <= 75.0) {
       return Colors.green;
-    } else if (humi < 60.0) {
+    } else if (humi < 50.0) {
       return Colors.blue;
     } else {
       return Colors.red;
@@ -120,10 +180,8 @@ class _DashboardState extends State<Dashboard> {
   }
 
   Color getMoistColor(double moist) {
-    if (moist >= 21.0 && moist <= 59.0) {
+    if (moist > 10.0) {
       return Colors.green;
-    } else if (moist < 21.0) {
-      return Colors.blue;
     } else {
       return Colors.red;
     }
@@ -149,28 +207,6 @@ class _DashboardState extends State<Dashboard> {
     } else {
       return 'BAD';
     }
-  }
-
-  // Method to handle received humidity data
-  void onHumidityDataReceived(double humidity, String plantId) {
-    // Update the humidity record in Firestore
-    updateHumidityData(humidity, plantId);
-
-    // Add any additional logic related to handling humidity data
-  }
-
-  // Update the humidity record in Firestore
-  void updateHumidityData(double humidity, String plantId) {
-    // Call the function to save the humidity record
-    firestoreService.saveHumidityRecord(plantId, humidity);
-  }
-
-  void onTemperatureDataReceived(double temp, String plantId) {
-    updateTemperatureData(temp, plantId);
-  }
-
-  void updateTemperatureData(double temp, String plantId) {
-    firestoreService.saveTemperatureRecord(plantId, temp);
   }
 
   @override
@@ -246,6 +282,23 @@ class _DashboardState extends State<Dashboard> {
                 }
               },
             ),
+            ListTile(
+              title: Text('Soil Moisture Records'),
+              onTap: () {
+                // Check if there is at least one plant in the list
+                if (plants.isNotEmpty) {
+                  // Use the plant ID of the first plant for demonstration
+                  String plantId = plants[0].id;
+
+                  // Navigate to Water Records screen
+                  Navigator.pop(context); // Close the drawer
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => SoilMoitureRecords(plantId: plantId)),
+                  );
+                }
+              },
+            ),
           ],
         ),
       ),
@@ -285,8 +338,7 @@ class _DashboardState extends State<Dashboard> {
                 } else if (moistColor == Colors.red) {
                   showNotification("Your plant is too wet, stop watering!");
                 }
-                onHumidityDataReceived(plant.humi, plant.id);
-                onTemperatureDataReceived(plant.temp, plant.id);
+                waterDuration = plant.water_duration;
               });
               return SingleChildScrollView(
                 child: Column(
@@ -494,13 +546,21 @@ class _DashboardState extends State<Dashboard> {
       ),
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 16.0, right: 16.0),
-        child: Align(
-          alignment: Alignment.bottomRight,
-          child: FloatingActionButton(
-            onPressed: openWaterDurationOverlay,
-            tooltip: 'Set Water Duration',
-            child: Icon(Icons.timer),
-          ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            FloatingActionButton(
+              onPressed: openWaterDurationOverlay,
+              tooltip: 'Set Water Duration',
+              child: Icon(Icons.timer),
+            ),
+            SizedBox(height: 16.0),
+            FloatingActionButton(
+              onPressed: openPhoneNumberOverlay,
+              tooltip: 'Set Phone Number',
+              child: Icon(Icons.phone),
+            ),
+          ],
         ),
       ),
     );
