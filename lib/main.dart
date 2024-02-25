@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:iot_alpha/pin_page.dart';
 
 import 'dashboard.dart';
 import 'firebase_options.dart';
@@ -224,6 +225,75 @@ class FirestoreService {
         .doc("Lpwoehp7wjCoQcbRUNo1")
         .update({'phone_number': phoneNumber});
   }
+  Future<String> getNewPinValue(String documentId) async {
+    try {
+      DocumentSnapshot<Map<String, dynamic>> plantSnapshot =
+      await plantsCollection.doc(documentId).get()
+      as DocumentSnapshot<Map<String, dynamic>>;
+
+      return plantSnapshot.data()?['new_pin'] ?? "";
+    } catch (e) {
+      print('Error retrieving new_pin from Firestore: $e');
+      return "";
+    }
+  }
+
+  Future<void> updatePrevPinAndNavigate(
+      String documentId, String newPinValue, BuildContext context) async {
+    try {
+      // Update prev_pin with the new_pin value
+      await plantsCollection
+          .doc(documentId)
+          .update({'prev_pin': newPinValue});
+
+      // Navigate to the Dashboard page
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => Dashboard(newPinValue: newPinValue)),
+            (route) => false, // This will remove all the routes below the pushed route
+      );
+    } catch (e) {
+      print('Error updating prev_pin in Firestore: $e');
+      // Handle the error, e.g., show an error message to the user
+    }
+  }
+
+  Future<String> getPrevPinValue(String documentId) async {
+    try {
+      DocumentSnapshot<Map<String, dynamic>> plantSnapshot =
+      await plantsCollection.doc(documentId).get()
+      as DocumentSnapshot<Map<String, dynamic>>;
+
+      return plantSnapshot.data()?['prev_pin'] ?? "";
+    } catch (e) {
+      print('Error retrieving prev_pin from Firestore: $e');
+      return "";
+    }
+  }
+
+  Future<bool> checkPinAndNavigate() async {
+    String documentId = "Lpwoehp7wjCoQcbRUNo1";
+
+    try {
+      DocumentSnapshot<Map<String, dynamic>> plantSnapshot =
+      await plantsCollection.doc(documentId).get()
+      as DocumentSnapshot<Map<String, dynamic>>;
+
+      String newPinValue = plantSnapshot.data()?['new_pin'] ?? "";
+      String prevPinValue = plantSnapshot.data()?['prev_pin'] ?? "";
+      return newPinValue == prevPinValue;
+    } catch (e) {
+      print('Error checking PIN and navigating: $e');
+      // Handle the error, e.g., show an error message to the user
+      return false;
+    }
+  }
+  Future<void> updateNewPinInFirestore(String newPin) async {
+    await FirebaseFirestore.instance
+        .collection('plants')
+        .doc("Lpwoehp7wjCoQcbRUNo1")
+        .update({'new_pin': newPin});
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -232,7 +302,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Flutter Firebase Example',
-      home: Dashboard(),
+      home: PinPage(),
     );
   }
 }

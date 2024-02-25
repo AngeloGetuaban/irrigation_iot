@@ -3,11 +3,16 @@ import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:iot_alpha/humi_record.dart';
 import 'package:iot_alpha/moist_record.dart';
+import 'package:iot_alpha/pin_page.dart';
 import 'package:iot_alpha/temp_records.dart';
 import 'package:iot_alpha/water_record.dart';
+import 'change_pin.dart';
 import 'main.dart';
 
 class Dashboard extends StatefulWidget {
+  final String newPinValue;
+
+  Dashboard({required this.newPinValue});
   @override
   _DashboardState createState() => _DashboardState();
 }
@@ -208,12 +213,48 @@ class _DashboardState extends State<Dashboard> {
       return 'BAD';
     }
   }
+  void checkPinAndNavigate() async {
+    bool shouldNavigate = await firestoreService.checkPinAndNavigate();
+    print(shouldNavigate);
+
+
+    if (!shouldNavigate) {
+      // If shouldNavigate is false, navigate to PinPage
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => PinPage()),
+            (
+            route) => false, // This will remove all the routes below the pushed route
+      );
+    }
+  }
+  void showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Dashboard'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.exit_to_app),
+            onPressed: () {
+              showSnackBar('Successfully logged out');
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => PinPage()),
+                    (
+                    route) => false, // This will remove all the routes below the pushed route
+              );
+            }
+          ),
+        ],
       ),
       drawer: Drawer(
         child: ListView(
@@ -299,6 +340,16 @@ class _DashboardState extends State<Dashboard> {
                 }
               },
             ),
+            ListTile(
+              title: Text('Change Pin'),
+              onTap: () {
+                Navigator.pop(context); // Close the drawer
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ChangePinPage()),
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -339,6 +390,7 @@ class _DashboardState extends State<Dashboard> {
                   showNotification("Your plant is too wet, stop watering!");
                 }
                 waterDuration = plant.water_duration;
+                checkPinAndNavigate();
               });
               return SingleChildScrollView(
                 child: Column(
